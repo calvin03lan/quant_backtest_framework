@@ -16,7 +16,8 @@ AkShare，美股行情来自 yfinance。
   `quant_backtest.cli.SAMPLE_CODES`。
 
 `quant_db.stock_pool` 使用 `pool_id/code/valid_from/valid_to` 保存带生效区间的
-股票池。
+股票池。支持 `sample`、当前沪深300快照 `csi300` 和当前标普500快照
+`sp500`。
 
 ## 安装与运行
 
@@ -39,11 +40,29 @@ export MONGO_DB=quant_db
 conda run -n quant quant-backtest init-db
 ```
 
+同步当前沪深300和标普500成分股：
+
+```bash
+conda run -n quant quant-backtest sync-pools --pool all
+```
+
+当前成分股只从同步日开始生效，并非历史成分。使用它们研究同步日前的历史会产生
+存活者偏差，因此 CLI 会拒绝把快照成员伪装成更早日期的历史成员。
+
 下载 2015 年至上个月末的数据；再次运行时从各股票最新日期后增量更新：
 
 ```bash
 conda run -n quant quant-backtest load-data
 ```
+
+指数股票池默认不自动下载全部行情，可按批次执行：
+
+```bash
+conda run -n quant quant-backtest load-data \
+  --pool csi300 --batch-offset 0 --batch-size 25 --request-delay 0.5
+```
+
+每只股票的下载错误会单独记录，不会中断整个批次。
 
 运行等权复合因子、月初等权调仓示例：
 
@@ -51,7 +70,8 @@ conda run -n quant quant-backtest load-data
 conda run -n quant quant-backtest backtest \
   --start 2020-01-01 --end 2024-12-31 \
   --factor composite --lookback 20 \
-  --reversal-lookback 5 --volatility-window 20 --top-n 5
+  --reversal-lookback 5 --volatility-window 20 --top-n 5 \
+  --initial-cash 1000000 --max-volume-pct 10
 ```
 
 只运行原有动量因子：
@@ -65,6 +85,31 @@ conda run -n quant quant-backtest backtest \
 预期输出为 `net_value`、`annual_return`、`max_drawdown` 和
 `sharpe_ratio`。调仓目标在月初首个交易日收盘形成，从下一交易日起生效，
 避免使用尚不可交易的当日收盘信息。
+
+## 成交模型
+
+CLI 默认启用：
+
+- A 股双边佣金 3 bps，卖出印花税 5 bps。
+- 美股双边佣金 1 bp，无卖出印花税。
+- 双边固定滑点 5 bps。
+- 单日成交额不超过当日成交额的 10%。
+- 缺价、成交量缺失或成交量为 0 时不成交，原持仓保留。
+- 买入受可用现金约束，卖出不超过已有持仓。
+
+调仓目标在月初首个交易日生成，下一交易日尝试一次成交，未成交部分不跨日追单。
+结果包含实际持仓、交易明细、换手率、佣金、税费、滑点和现金。
+
+如需复现原来的无摩擦权重回测：
+
+```bash
+conda run -n quant quant-backtest backtest \
+  --pool sample --start 2020-01-01 --end 2024-12-31 --frictionless
+```
+
+AkShare 的 A 股成交量原始单位为“手”，框架入库时转换为“股”。旧版已经入库的
+A 股数据需要执行 `load-data --pool sample --full` 全量刷新后，成交量约束才有
+统一口径。
 
 ## 因子层
 
@@ -86,13 +131,13 @@ conda run -n quant pytest
 
 测试使用固定数据和 mongomock，不访问实时行情网络，也不会修改本地
 `quant_db`。覆盖数据清洗、幂等 upsert、股票池读取、增量日期、未来数据
-隔离、三类因子、截面处理、复合因子、月度调仓和绩效指标。当前预期结果为
-`24 passed`。
+隔离、指数成分标准化、三类因子、截面处理、复合因子、费用、滑点、停牌、
+成交量限制、月度调仓和绩效指标。当前预期结果为 `39 passed`。
 
 ## 首版限制
 
 - yfinance 和 AkShare 是免费数据源，接口稳定性与数据授权需由使用者确认。
-- 股票池示例不是历史指数成分，正式研究应导入带生效区间的历史成分股。
-- 首版不模拟手续费、滑点、成交量约束和复杂订单撮合。
+- 沪深300和标普500目前只有当前快照；无偏历史研究仍需导入历史成分。
+- 首版不模拟最低佣金、A 股整手、涨跌停和订单跨日排队。
 - 增量加载不会主动重算已入库历史复权因子；发生公司行动后可用
   `load-data --full` 全量刷新。

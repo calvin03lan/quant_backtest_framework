@@ -67,3 +67,38 @@ def test_empty_pool_returns_standard_empty_frame():
 
     assert result.empty
     assert "adj_factor" in result.columns
+
+
+def pool_snapshot(date, codes):
+    return pd.DataFrame(
+        {
+            "pool_id": ["test_index"] * len(codes),
+            "code": codes,
+            "market": ["US"] * len(codes),
+            "name": codes,
+            "source": ["fixture"] * len(codes),
+            "snapshot_date": [pd.Timestamp(date)] * len(codes),
+        }
+    )
+
+
+def test_pool_snapshot_closes_previous_membership_intervals():
+    repository = make_repository()
+    repository.sync_pool_snapshot(
+        pool_snapshot("2026-07-22", ["AAA.US", "BBB.US"])
+    )
+    repository.sync_pool_snapshot(
+        pool_snapshot("2026-07-23", ["BBB.US", "CCC.US"])
+    )
+
+    assert repository.get_pool_codes("test_index", "2026-07-22") == [
+        "AAA.US",
+        "BBB.US",
+    ]
+    assert repository.get_pool_codes("test_index", "2026-07-23") == [
+        "BBB.US",
+        "CCC.US",
+    ]
+    assert repository.latest_pool_snapshot("test_index") == pd.Timestamp(
+        "2026-07-23"
+    )

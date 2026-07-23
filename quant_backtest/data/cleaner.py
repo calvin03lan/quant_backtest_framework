@@ -29,11 +29,13 @@ class MarketDataCleaner:
             cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
 
         cleaned = cleaned.sort_values(["code", "date"])
-        cleaned[self.numeric_columns] = cleaned.groupby(
-            "code", group_keys=False
-        )[self.numeric_columns].ffill(limit=5)
-        cleaned = cleaned.dropna(subset=["date", "code", *self.numeric_columns])
         cleaned = cleaned.drop_duplicates(["code", "date"], keep="last")
+        cleaned["adj_factor"] = cleaned.groupby("code")["adj_factor"].ffill(limit=5)
+        # Missing volume means the bar cannot be traded; do not invent liquidity.
+        cleaned["volume"] = cleaned["volume"].fillna(0)
+        cleaned = cleaned.dropna(
+            subset=["date", "code", "open", "high", "low", "close", "adj_factor"]
+        )
 
         finite = np.isfinite(cleaned[self.numeric_columns]).all(axis=1)
         valid = (

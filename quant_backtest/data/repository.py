@@ -126,6 +126,111 @@ class MongoMarketDataRepository:
         result = self.pools.bulk_write(operations, ordered=False)
         return result.upserted_count + result.modified_count
 
+    def sync_pool_snapshot(self, data: pd.DataFrame) -> int:
+        required = {
+            "pool_id",
+            "code",
+            "market",
+            "name",
+            "source",
+            "snapshot_date",
+        }
+        missing = required - set(data.columns)
+        if missing:
+            raise ValueError(f"pool snapshot missing columns: {sorted(missing)}")
+        if data.empty:
+            raise ValueError("pool snapshot must not be empty")
+        if data["code"].duplicated().any():
+            raise ValueError("pool snapshot contains duplicate codes")
+        pool_ids = data["pool_id"].unique()
+        snapshot_dates = pd.to_datetime(data["snapshot_date"]).dt.normalize().unique()
+        if len(pool_ids) != 1 or len(snapshot_dates) != 1:
+            raise ValueError("a pool sync must contain one pool and one snapshot date")
+
+        pool_id = str(pool_ids[0])
+        snapshot = _to_datetime(pd.Timestamp(snapshot_dates[0]))
+        previous_day = snapshot - pd.Timedelta(days=1)
+        codes = data["code"].tolist()
+        self.pools.update_many(
+            {
+                "pool_id": pool_id,
+                "valid_to": None,
+                "valid_from": {"$lt": snapshot},
+            },
+            {"$set": {"valid_to": previous_day}},
+        )
+        self.pools.delete_many(
+            {
+                "pool_id": pool_id,
+                "valid_from": snapshot,
+                "code": {"$nin": codes},
+            }
+        )
+
+        documents = []
+        operations = []
+        for row in data.to_dict("records"):
+            document = {
+                "pool_id": pool_id,
+                "code": row["code"],
+                "market": row["market"],
+                "name": row["name"],
+                "source": row["source"],
+                "snapshot_date": snapshot,
+                "valid_from": snapshot,
+                "valid_to": None,
+            }
+            documents.append(document)
+            operations.append(
+                UpdateOne(
+                    {
+                        "pool_id": pool_id,
+                        "code": row["code"],
+                        "valid_from": snapshot,
+                    },
+                    {"$set": document},
+                    upsert=True,
+                )
+            )
+        if _is_mongomock(self.pools):
+            return sum(
+                _changed(
+                    self.pools.update_one(
+                        {
+                            "pool_id": document["pool_id"],
+                            "code": document["code"],
+                            "valid_from": document["valid_from"],
+                        },
+                        {"$set": document},
+                        upsert=True,
+                    )
+                )
+                for document in documents
+            )
+        result = self.pools.bulk_write(operations, ordered=False)
+        return result.upserted_count + result.modified_count
+
+    def latest_pool_snapshot(self, pool_id: str) -> pd.Timestamp | None:
+        document = self.pools.find_one(
+            {"pool_id": pool_id},
+            sort=[("valid_from", -1)],
+            projection={"valid_from": 1},
+        )
+        return pd.Timestamp(document["valid_from"]) if document else None
+
+    def get_pool_members(
+        self, pool_id: str, as_of: str | pd.Timestamp
+    ) -> list[dict]:
+        date = _to_datetime(as_of)
+        query = {
+            "pool_id": pool_id,
+            "valid_from": {"$lte": date},
+            "$or": [{"valid_to": None}, {"valid_to": {"$gte": date}}],
+        }
+        return list(
+            self.pools.find(query, {"_id": 0}).sort([("market", 1), ("code", 1)])
+        )
+
     def latest_date(self, code: str) -> pd.Timestamp | None:
         document = self.daily.find_one(
             {"code": code}, sort=[("date", -1)], projection={"date": 1}
@@ -135,13 +240,7 @@ class MongoMarketDataRepository:
     def get_pool_codes(
         self, pool_id: str, as_of: str | pd.Timestamp
     ) -> list[str]:
-        date = _to_datetime(as_of)
-        query = {
-            "pool_id": pool_id,
-            "valid_from": {"$lte": date},
-            "$or": [{"valid_to": None}, {"valid_to": {"$gte": date}}],
-        }
-        return sorted(self.pools.distinct("code", query))
+        return [member["code"] for member in self.get_pool_members(pool_id, as_of)]
 
     def read_prices(
         self,

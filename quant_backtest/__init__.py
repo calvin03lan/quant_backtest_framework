@@ -2,6 +2,7 @@
 
 from .config import Settings
 from .engine import BacktestEngine, BacktestResult
+from .execution import ExecutionConfig, MarketFeeSchedule
 from .factors import (
     CompositeFactor,
     CrossSectionalProcessor,
@@ -16,6 +17,8 @@ __all__ = [
     "BacktestResult",
     "CompositeFactor",
     "CrossSectionalProcessor",
+    "ExecutionConfig",
+    "MarketFeeSchedule",
     "MomentumFactor",
     "PerformanceAnalyzer",
     "ReversalFactor",

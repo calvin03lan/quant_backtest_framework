@@ -9,9 +9,11 @@ description = "A small factor backtesting framework backed by MongoDB"
 requires-python = ">=3.10"
 dependencies = [
     "akshare",
+    "lxml",
     "numpy",
     "pandas",
     "pymongo",
+    "requests",
     "yfinance",
 ]
 

@@ -54,6 +54,8 @@ class AkShareProvider:
         data["adj_factor"] = data["adj_factor"].replace(
             [np.inf, -np.inf], np.nan
         )
+        # AkShare reports A-share volume in lots (手); one lot is 100 shares.
+        data["volume"] = pd.to_numeric(data["volume"], errors="coerce") * 100
         data["code"] = normalize_cn_code(code)
         data["market"] = self.market
         return data[STANDARD_COLUMNS]
@@ -80,7 +82,7 @@ class YFinanceProvider:
     def fetch(self, code: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
         import yfinance as yf
 
-        symbol = code.removesuffix(".US")
+        symbol = to_yfinance_symbol(code)
         # yfinance treats end as exclusive.
         data = yf.download(
             symbol,
@@ -126,3 +128,7 @@ def normalize_cn_code(code: str) -> str:
 def normalize_us_code(code: str) -> str:
     symbol = code.upper().removesuffix(".US")
     return f"{symbol}.US"
+
+
+def to_yfinance_symbol(code: str) -> str:
+    return code.upper().removesuffix(".US").replace(".", "-")
