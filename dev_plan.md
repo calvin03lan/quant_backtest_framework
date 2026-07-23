@@ -34,12 +34,13 @@ AkShare / yfinance
                      PerformanceAnalyzer
 ```
 
-框架分为四个主要层级：
+框架分为五个主要层级：
 
 1. 数据层：负责行情下载、标准化、质量校验、MongoDB 存储和查询。
 2. 因子层：负责时序因子、截面处理及多因子合成。
 3. 回测层：负责调仓日识别、选股、权重生成和组合收益计算。
 4. 绩效层：负责净值、年化收益、最大回撤和夏普比率。
+5. 可视化层：负责价格折线图、K 线图和 Notebook 研究入口。
 
 CLI 只负责解析参数和编排各层，不承载业务计算逻辑。
 
@@ -53,19 +54,25 @@ quant_backtest_framework/
 │   ├── config.py
 │   ├── factors.py
 │   ├── engine.py
+│   ├── execution.py
 │   ├── performance.py
+│   ├── plotting.py
 │   └── data/
 │       ├── __init__.py
 │       ├── providers.py
+│       ├── pools.py
 │       ├── cleaner.py
 │       ├── repository.py
 │       └── service.py
+├── notebooks/
+│   └── price_chart_demo.ipynb
 ├── tests/
 │   ├── test_data_cleaner.py
 │   ├── test_data_service.py
 │   ├── test_repository.py
 │   ├── test_factors.py
 │   ├── test_factor_engine.py
+│   ├── test_plotting.py
 │   └── test_performance.py
 ├── pyproject.toml
 ├── README.md
@@ -247,7 +254,22 @@ Python API 保留零成本、无成交量限制的兼容模式。
 默认使用 252 个交易日年化，并支持配置无风险利率。收益为空时必须报错；零波动
 序列的夏普比率定义为零。
 
-## 8. 配置与 CLI
+## 8. 可视化层设计
+
+`PriceChartEngine` 只读消费 MongoDB 标准行情，按单一标的和时间范围输出
+Matplotlib Figure：
+
+- 折线图默认绘制原始 `close`，支持 OHLC 字段和复权价格。
+- K 线由 mplfinance 绘制，可显示成交量副图。
+- 自动 K 线频率：不超过 160 根使用日 K，161–750 根使用周 K，更长区间使用月 K。
+- 周/月 OHLC 使用 first/max/min/last，成交量求和，标题必须标注实际频率。
+- 折线图使用自适应画布和紧凑日期刻度，不插值非交易日。
+- 支持高 DPI PNG 保存，并对空数据、非法区间和多标的输入明确报错。
+
+`notebooks/price_chart_demo.ipynb` 使用代码参数选择标的、日期、图表类型、价格
+字段、复权、K 线频率、成交量和输出路径，不依赖 widgets。
+
+## 9. 配置与 CLI
 
 MongoDB 配置通过环境变量覆盖：
 
@@ -276,7 +298,7 @@ quant-backtest backtest
 - 配置回测日期、因子窗口、Top-N 和成交参数。
 - 输出 JSON 格式绩效结果。
 
-## 9. 测试方案
+## 10. 测试方案
 
 测试使用 pytest。数据层测试使用固定响应和 mongomock，不访问实时行情，也不修改
 本地 `quant_db`。
@@ -294,6 +316,7 @@ quant-backtest backtest
 - 月度调仓、次日生效和空因子拒绝。
 - 市场差异化费率、滑点、停牌、现金和成交量限制。
 - 净值、年化收益、最大回撤和夏普比率。
+- 默认收盘价折线、复权图、K 线自动日/周/月聚合、PNG 保存和 Notebook 参数。
 
 每次开发完成后执行：
 
@@ -304,7 +327,7 @@ python -m compileall -q quant_backtest tests
 
 除自动化测试外，还应使用本地 MongoDB 中的真实样本数据完成一次端到端回测。
 
-## 10. 当前完成状态
+## 11. 当前完成状态
 
 - [x] Python 包与依赖配置
 - [x] A 股和美股数据源适配
@@ -317,13 +340,14 @@ python -m compileall -q quant_backtest tests
 - [x] 月度等权调仓引擎
 - [x] 手续费、滑点、停牌和成交量约束
 - [x] 基础绩效指标
+- [x] 价格折线图、自适应 K 线和参数式 Notebook
 - [x] CLI、README 和开发记录
 - [x] 自动化测试与真实数据端到端验证
 
 当前数据库包含 10 只示例股票的行情，以及当前沪深300和标普500股票池快照。
 指数成分股行情不会自动全量下载。
 
-## 11. 后续开发路线
+## 12. 后续开发路线
 
 ### 阶段一：扩大研究数据范围
 

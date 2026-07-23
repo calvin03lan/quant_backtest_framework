@@ -1,0 +1,13 @@
+name: quant
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - ipython
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - pandas
+  - pip:
+      - -e .[test,notebook]

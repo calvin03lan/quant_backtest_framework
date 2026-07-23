@@ -10,6 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
     "akshare",
     "lxml",
+    "matplotlib",
+    "mplfinance",
     "numpy",
     "pandas",
     "pymongo",
@@ -21,6 +23,10 @@ dependencies = [
 test = [
     "mongomock",
     "pytest",
+]
+notebook = [
+    "ipykernel",
+    "jupyterlab",
 ]
 
 [project.scripts]

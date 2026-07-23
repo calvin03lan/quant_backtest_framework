@@ -237,6 +237,9 @@ class MongoMarketDataRepository:
         )
         return pd.Timestamp(document["date"]) if document else None
 
+    def list_price_codes(self) -> list[str]:
+        return sorted(self.daily.distinct("code"))
+
     def get_pool_codes(
         self, pool_id: str, as_of: str | pd.Timestamp
     ) -> list[str]:
