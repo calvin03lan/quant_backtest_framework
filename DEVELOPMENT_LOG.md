@@ -461,3 +461,22 @@ total_transaction_cost  53144.048200
 数据服务自动下载、清洗并写入 MongoDB；已有行情仍直接复用。
 
 新增策略、CLI 和 Notebook 静态测试，完整测试套件扩展到 57 项。
+
+## 十一、配置驱动的研究与报告架构
+
+将原双均线 Notebook 中的数据、指标和绘图实现迁移到包内可复用组件：
+
+- `MovingAverageResearchConfig` 使用 dataclass 统一管理标的、基准、日期、策略、
+  成本、无风险利率、自动补数和报告配置。
+- `SingleAssetResearchRunner` 编排 MongoDB 读取、缺失行情下载、策略回测、基准
+  对齐和绩效分析，返回稳定的 `SingleAssetResearchResult`。
+- `PerformanceAnalyzer.compare` 集中生成策略/基准净值、回撤、超额收益、跟踪
+  误差和信息比率，Notebook 不再保存指标公式。
+- `BacktestReportPlotter` 提供信号、净值和回撤独立图，以及按 `panels` 组合的
+  dashboard；`BacktestReportConfig` 统一控制画布、DPI、标题和输出路径。
+
+原 `moving_average_backtest_demo.ipynb` 替换为
+`notebooks/backtest_template.ipynb`。新模板仅有四个代码单元：公共 API 导入、
+配置、Runner 和展示，不包含数据下载、DataFrame 对齐或 Matplotlib 实现。
+
+新增研究编排、相对绩效、报告面板和薄模板测试，完整测试套件扩展到 66 项。

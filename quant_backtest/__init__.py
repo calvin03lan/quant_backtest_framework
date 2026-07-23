@@ -10,8 +10,18 @@ from .factors import (
     ReversalFactor,
     VolatilityFactor,
 )
-from .performance import PerformanceAnalyzer
+from .performance import PerformanceAnalyzer, PerformanceComparison
 from .plotting import PriceChartEngine
+from .reporting import (
+    BacktestReportArtifacts,
+    BacktestReportConfig,
+    BacktestReportPlotter,
+)
+from .research import (
+    MovingAverageResearchConfig,
+    SingleAssetResearchResult,
+    SingleAssetResearchRunner,
+)
 from .strategy import (
     MovingAverageStrategy,
     SingleAssetBacktestEngine,
@@ -20,18 +30,25 @@ from .strategy import (
 
 __all__ = [
     "BacktestEngine",
+    "BacktestReportArtifacts",
+    "BacktestReportConfig",
+    "BacktestReportPlotter",
     "BacktestResult",
     "CompositeFactor",
     "CrossSectionalProcessor",
     "ExecutionConfig",
     "MarketFeeSchedule",
     "MomentumFactor",
+    "MovingAverageResearchConfig",
     "MovingAverageStrategy",
     "PerformanceAnalyzer",
+    "PerformanceComparison",
     "PriceChartEngine",
     "ReversalFactor",
     "Settings",
     "SingleAssetBacktestEngine",
     "SingleAssetBacktestResult",
+    "SingleAssetResearchResult",
+    "SingleAssetResearchRunner",
     "VolatilityFactor",
 ]

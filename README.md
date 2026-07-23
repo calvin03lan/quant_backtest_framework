@@ -167,16 +167,36 @@ K 线自动聚合规则：
 标题会显示实际频率。折线图保留全部行情点，并自动调整画布和日期刻度。设置
 `adjusted=True` 时，OHLC 会乘以 `adj_factor`。
 
-## 双均线策略回测 Notebook
+## 配置驱动的回测报告
 
 ```bash
-conda run -n quant jupyter lab notebooks/moving_average_backtest_demo.ipynb
+conda run -n quant jupyter lab notebooks/backtest_template.ipynb
 ```
 
-Notebook 会优先读取 MongoDB；如果所选日期范围内缺少策略标的或基准行情，会
-通过 AkShare 或 yfinance 自动下载、清洗并写入数据库，无需预先运行数据命令。
-A 股可以使用 `510300.SH` 作为沪深300 ETF 基准。参数单元可配置标的、基准、
-日期、短长均线窗口、单边交易成本、无风险利率和图片输出路径。
+Notebook 只包含公共 API 导入、dataclass 配置、Runner 调用和结果展示。数据读取
+与自动补数、策略构建、回测、基准对齐、指标和 Matplotlib 绘图都由包内工具完成。
+同一模板只需修改配置：
+
+```python
+config = MovingAverageResearchConfig(
+    code="AAPL.US",
+    benchmark_code="SPY.US",
+    start="2018-01-01",
+    end="2024-12-31",
+    short_window=20,
+    long_window=60,
+    report=BacktestReportConfig(
+        panels=("signals", "equity", "drawdown"),
+        save_path=None,
+    ),
+)
+result = SingleAssetResearchRunner().run(config)
+report = BacktestReportPlotter().build(result)
+```
+
+`panels` 可按需组合 `signals`、`equity` 和 `drawdown`。也可以单独调用
+`plot_signals()`、`plot_equity()` 或 `plot_drawdown()`，在脚本和其他 Notebook
+复用同一绘图能力。A 股可使用 `510300.SH` 作为沪深300 ETF 基准。
 
 双均线在短均线高于长均线时持有标的，否则保持空仓。收盘信号从下一交易日生效，
 避免同日未来数据；回测输出策略与基准的累计收益、年化收益、夏普比率、最大回撤、
@@ -194,8 +214,8 @@ conda run -n quant pytest
 测试使用固定数据和 mongomock，不访问实时行情网络，也不会修改本地
 `quant_db`。覆盖数据清洗、幂等 upsert、股票池读取、增量日期、未来数据
 隔离、指数成分标准化、三类因子、截面处理、复合因子、费用、滑点、停牌、
-成交量限制、月度调仓、双均线策略、价格绘图、Notebook 参数和绩效指标。当前
-预期结果为 `57 passed`。
+成交量限制、月度调仓、双均线策略、研究编排、可配置回测报告、价格绘图、
+Notebook 模板和绩效指标。当前预期结果为 `66 passed`。
 
 ## 首版限制
 

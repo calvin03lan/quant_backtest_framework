@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
@@ -97,30 +94,3 @@ def test_backtest_rejects_multiple_or_duplicate_symbols():
     )
     with pytest.raises(ValueError, match="duplicate"):
         MovingAverageStrategy(1, 2).generate_signals(duplicate)
-
-
-def test_strategy_notebook_parameters_compile_and_use_public_api():
-    notebook_path = (
-        Path(__file__).parents[1]
-        / "notebooks"
-        / "moving_average_backtest_demo.ipynb"
-    )
-    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-    code_sources = [
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code"
-    ]
-    combined = "\n".join(code_sources)
-
-    for source in code_sources:
-        compile(source, str(notebook_path), "exec")
-    assert "MovingAverageStrategy" in combined
-    assert "SingleAssetBacktestEngine" in combined
-    assert "MarketDataService" in combined
-    assert "data_service.load" in combined
-    assert 'BENCHMARK_CODE = "SPY.US"' in combined
-    assert "SHORT_WINDOW = 20" in combined
-    assert "LONG_WINDOW = 60" in combined
-    assert "excess_net_value" in combined
-    assert "ipywidgets" not in combined
