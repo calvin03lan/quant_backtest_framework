@@ -12,6 +12,11 @@ from .factors import (
 )
 from .performance import PerformanceAnalyzer
 from .plotting import PriceChartEngine
+from .strategy import (
+    MovingAverageStrategy,
+    SingleAssetBacktestEngine,
+    SingleAssetBacktestResult,
+)
 
 __all__ = [
     "BacktestEngine",
@@ -21,9 +26,12 @@ __all__ = [
     "ExecutionConfig",
     "MarketFeeSchedule",
     "MomentumFactor",
+    "MovingAverageStrategy",
     "PerformanceAnalyzer",
     "PriceChartEngine",
     "ReversalFactor",
     "Settings",
+    "SingleAssetBacktestEngine",
+    "SingleAssetBacktestResult",
     "VolatilityFactor",
 ]

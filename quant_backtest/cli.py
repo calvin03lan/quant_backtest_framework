@@ -14,7 +14,7 @@ from .data import (
     YFinanceProvider,
 )
 from .engine import BacktestEngine
-from .execution import ExecutionConfig, MarketFeeSchedule
+from .execution import ExecutionConfig, MarketFeeSchedule, infer_market
 from .factors import (
     CompositeFactor,
     MomentumFactor,
@@ -43,8 +43,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     load = subparsers.add_parser("load-data", help="load or update sample market data")
-    load.add_argument(
+    load_source = load.add_mutually_exclusive_group()
+    load_source.add_argument(
         "--pool", choices=["sample", "csi300", "sp500"], default="sample"
+    )
+    load_source.add_argument(
+        "--codes",
+        nargs="+",
+        help="load explicit codes, for example SPY.US 510300.SH",
     )
     load.add_argument("--start", default="2015-01-01")
     load.add_argument("--end")
@@ -113,7 +119,24 @@ def main() -> None:
         return
 
     if args.command == "load-data":
-        if args.pool == "sample":
+        if args.codes:
+            codes = [
+                code.strip().upper()
+                for value in args.codes
+                for code in value.split(",")
+                if code.strip()
+            ]
+            codes_by_market: dict[str, list[str]] = {}
+            for code in codes:
+                codes_by_market.setdefault(infer_market(code), []).append(code)
+            counts = service.load(
+                codes_by_market,
+                start=args.start,
+                end=args.end,
+                incremental=not args.full,
+                request_delay=args.request_delay,
+            )
+        elif args.pool == "sample":
             counts = service.load(
                 SAMPLE_CODES,
                 start=args.start,
